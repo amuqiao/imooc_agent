@@ -5,6 +5,7 @@
 ✅ 彻底解决导入报错 | ✅ 无需降级 | ✅ 改动最小 | ✅ 自动生成+执行代码
 """
 # ===================== 全部正确的导入（核心修复，必看） =====================
+import os
 from langchain_openai import ChatOpenAI
 from langchain_experimental.tools.python.tool import PythonREPLTool
 from pydantic import SecretStr
@@ -12,7 +13,9 @@ from langchain_core.prompts import PromptTemplate
 # ✅✅✅ LangChain 1.2.4 正确导入 - 解决所有报错 ✅✅✅
 from langchain_classic.agents import AgentExecutor
 from langchain_classic.agents import create_tool_calling_agent
-import os
+
+
+
 
 
 
