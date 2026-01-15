@@ -5,7 +5,6 @@
 根据 docs/note.md 实现智能体开发的完整流程
 包括：初始化工具、初始化大模型、创建智能体、调用智能体
 """
-
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import StructuredTool
