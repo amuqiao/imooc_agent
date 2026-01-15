@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>杭州五日游行程攻略</title>
+    <style>
+        body { font-family: 'Microsoft YaHei', sans-serif; margin: 40px; background: #f5f7fa; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1, h2 { color: #333; text-align: center; }
+        .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin: 16px 0; }
+        .info-item { padding: 12px; background: #f8f9fc; border-radius: 8px; }
+        .info-label { font-weight: bold; color: #1e90ff; }
+        .links a { display: block; margin: 8px 0; padding: 10px 16px; background: #1e90ff; color: white; text-decoration: none; border-radius: 6px; text-align: center; transition: background 0.3s; }
+        .links a:hover { background: #187bcd; }
+        .weather { background: linear-gradient(135deg, #74b9ff, #00b894); color: white; padding: 16px; border-radius: 8px; text-align: center; }
+        .itinerary { list-style: none; padding: 0; }
+        .itinerary li { margin: 12px 0; padding: 12px; background: #f0f3f6; border-left: 4px solid #1e90ff; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎉 杭州五日游行程攻略</h1>
+
+    <div class="card weather">
+        <h2>🌤️ 天气预报</h2>
+        <p><strong>杭州市</strong> | 晴转多云，气温适中，适宜出行！</p>
+    </div>
+
+    <div class="card">
+        <h2>📅 行程概览</h2>
+        <ul class="itinerary">
+            <li><strong>第1天</strong>：西湖风景区 - 漫步湖畔，感受江南韵味</li>
+            <li><strong>第2天</strong>：灵隐寺 - 古刹禅意，净化心灵</li>
+            <li><strong>第3天</strong>：宋城 - 穿越千年，体验宋代风情</li>
+            <li><strong>第4天</strong>：千岛湖 - 山水画卷，心旷神怡</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>📍 西湖 → 灵隐寺</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">距离</span>: 7.6公里
+            </div>
+            <div class="info-item">
+                <span class="info-label">骑行时间</span>: 30分钟
+            </div>
+            <div class="info-item">
+                <span class="info-label">步行时间</span>: 67分钟
+            </div>
+        </div>
+        <div class="links">
+            <a href="amapuri://drive/takeTaxi?sourceApplication=amapplatform&slat=30.222692&slon=120.121358&sname=%E8%A5%BF%E6%B9%96&dlon=120.101406&dlat=30.240826&dname=%E7%81%B5%E9%9A%90%E5%AF%BA" target="_blank">🚖 打车前往</a>
+            <a href="amapuri://path/plan?from=120.121358,30.222692&to=120.101406,30.240826&mode=bike" target="_blank">🚲 骑行路线</a>
+            <a href="amapuri://path/plan?from=120.121358,30.222692&to=120.101406,30.240826&mode=walk" target="_blank">🚶 步行导航</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📍 灵隐寺 → 宋城</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">距离</span>: 7.9公里
+            </div>
+            <div class="info-item">
+                <span class="info-label">公共交通</span>: 约57分钟
+            </div>
+        </div>
+        <div class="links">
+            <a href="amapuri://drive/takeTaxi?sourceApplication=amapplatform&slat=30.240826&slon=120.101406&sname=%E7%81%B5%E9%9A%90%E5%AF%BA&dlon=120.098741&dlat=30.169795&dname=%E5%AE%8B%E5%9F%8E" target="_blank">🚖 打车前往</a>
+            <a href="amapuri://path/plan?from=120.101406,30.240826&to=120.098741,30.169795&mode=bus" target="_blank">🚌 公共交通</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📍 宋城 → 千岛湖</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">距离</span>: 150.3公里
+            </div>
+            <div class="info-item">
+                <span class="info-label">驾车时间</span>: 1小时59分钟
+            </div>
+        </div>
+        <div class="links">
+            <a href="amapuri://path/plan?from=120.098741,30.169795&to=119.013097,29.594386&mode=car" target="_blank">🚗 驾车导航</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🗺️ 专属行程地图</h2>
+        <p>点击下方链接，在高德地图App中查看完整行程：</p>
+        <div class="links">
+            <a href="amapuri://workInAmap/createWithToken?polymericId=mcp_cd39c74e5f1d4a499890a1764bdf18b0&from=MCP" target="_blank">📱 查看高德地图行程</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
