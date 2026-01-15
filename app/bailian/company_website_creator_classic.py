@@ -15,10 +15,6 @@ from langchain_classic.agents import AgentExecutor
 from langchain_classic.agents import create_tool_calling_agent
 
 
-
-
-
-
 # ===================== 1. 初始化大模型 (完全保留你的配置，一行未改) =====================
 def init_llm():
     """初始化通义千问大模型"""
