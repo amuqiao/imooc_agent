@@ -1,145 +1,200 @@
-# 高德MCP服务介绍
+# **深入MCP通信方式**
 
-https://lbs.amap.com/api/mcp-server/summary
+三种MCP通讯方式MCP（Model Context Protocol）协议目前支持三种主要通信方式，分别是：stdio（标准输入输出）工作原理：
+通过本地进程的标准输入（stdin）和标准输出（stdout）进行通信。客户端以子进程的形式启动MCP服务器，双方通过管道交换JSON-RPC格式的消息，消息以换行符分隔。适用场景：本地进程间通信（如命令行工具、文件系统操作）。简单的批处理任务或工具调用。优点：实现简单，低延迟。无需网络配置，适合本地开发。限制：仅限本地使用，不支持分布式部署。服务端不能输出控制台日志（会污染协议流）。SSE（Server-Sent Events）工作原理：
+基于HTTP长连接实现服务器到客户端的单向消息推送。客户端通过GET /sse建立长连接，服务器通过SSE流发送JSON-RPC消息；客户端通过POST /message发送请求或响应。适用场景：远程服务调用（如云服务、多客户端监控）。需要实时数据推送的场景（如对话式AI的流式输出）。优点：支持实时单向推送，适合流式交互。限制：已逐步被弃用（2025年3月后被Streamable HTTP取代）。连接中断后无法恢复，需重新建立。服务器需维持长连接，资源消耗较高。Streamable HTTP（流式HTTP）工作原理：
+2025年3月引入的新传输方式，替代了SSE。通过统一的/message端点实现双向通信，支持以下特性：客户端通过HTTP POST发送请求（如工具调用）。服务器可将响应升级为SSE流式传输（当需要时）。支持无状态模式（Stateless Server），无需维持长连接。适用场景：高并发远程服务调用。需要灵活流式响应的场景（如AI助手的动态输出）。优点：解决SSE的缺陷：支持连接恢复（无需重新开始）。无需服务器维持长连接，降低资源压力。统一端点（/message），简化接口设计。兼容基础设施（如中间件、负载均衡）。推荐使用：
+当前MCP官方推荐的传输方式，尤其适合生产环境和云服务。实现基于stdio的mcp服务stdio模式mcp服务架构：
 
-# 高德MCP服务集成
-
-# 第一步：MCP客户端开发
-
-过程分为三个小步骤：
-
-### 1.1 安装依赖
+第一步：创建mcp server（包含工具能力）使用 FastMCP 构建 mcp server：
 
 ```bash
-$ uv add langchain_mcp_adapters
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Math Tools")
+
+@mcp.tool()
+def add(a: int, b: int) -> int:
+    """Add two numbers"""
+    return a + b
+
+@mcp.tool()
+def multiply(a: int, b: int) -> int:
+    """Multiply two numbers"""
+    return a * b
+
+if __name__ == "__main__":
+    mcp.run(transport="stdio")
 ```
 
-### 1.2 获取高德应用key
+以上代码包含两部分内容：
 
-https://lbs.amap.com/api/mcp-server/create-project-and-key
+1. 使用`@mcp.tool()`装饰器注册的 mcp 工具方法；
+2. 使用 `mcp.run(transport="stdio")`启动 stdio mcp 服务。
 
-### 1.3 开发高德mcp客户端
+# 第二步：启动mcp server
+
+找到 mcp server 所在文件夹，使用 python 命令启动服务（相当于启动了对 IO 流中 read 和 write 事件的监听）：
 
 ```bash
-from langchain_mcp_adapters.client import MultiServerMCPClient
-
-async def create_mcp_client():
-    amap_key = os.environ.get("AMAP_KEY")
-
-    client = MultiServerMCPClient({
-        "amap": {
-            "url": f"https://mcp.amap.com/sse?key={amap_key}",
-            "transport": "sse",
-        }
-    })
-
-    tools = await client.get_tools()
-
-    return client, tools
+$ python app/fastmcp/stdio/math_tools.py
 ```
 
-# 第二步：创建智能体，集成MCP工具
+# 第三步：开发mcp client（包含智能体）
 
-过程分为四个小步骤：
+这里又分为三小步：
 
-### 2.1 获取mcp tools
-
-注意：要创建 async function
+### 3.1 定义 stdio server 参数
 
 ```bash
-client, tools = await create_mcp_client()
-```
-
-**2.2 创建智能体**
-
-```bash
-agent = initialize_agent(
-    tools=tools,
-    llm=llm,
-    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-    verbose=True,
+server_params = StdioServerParameters(
+    command="python",
+    args=["/Users/sam/Xiaoluyy/ai/agent_test/app/fastmcp/math_tools.py"],
 )
 ```
 
-**2.3 创建提示词**
+**3.2 读取 stdio mcp tools**
 
 ```bash
-prompt_template = PromptTemplate.from_template(
-    "你是一个智能助手，可以调用高德 MCP 工具。\n\n问题: {input}"
-)
-
-prompt = prompt_template.format(input="""
-- 我五月底端午节计划去杭州游玩4天。
-- 帮制作旅行攻略，考虑出行时间和路线，以及天气状况路线规划。
-- 制作网页地图自定义绘制旅游路线和位置。
-    - 网页使用简约美观页面风格，景区图片以卡片展示。
-- 行程规划结果在高德地图app展示，并集成到h5页面中。
-- 同一天行程景区之间我想打车前往。
-""")
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await load_mcp_tools(session)  # 自动加载MCP服务器提供的工具
 ```
 
-**2.4 异步运行智能体**
+**3.3 定义智能体，加载 mcp tools**
 
 ```bash
-resp = await agent.ainvoke(prompt)
+agent = create_react_agent(llm, tools)  # 创建React Agent
+response = await agent.ainvoke(input={"messages": [("user", "what's (3 + 5) x 12?")]})  # 调用Agent
 ```
 
-**第三步：异步运行程序**
+**mcp客户端完整源码**
 
 ```bash
 import asyncio
 
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from langchain_mcp_adapters.tools import load_mcp_tools
+from langgraph.prebuilt import create_react_agent
+
+from app.common import llm
+
+# 使用stdio模式
+server_params = StdioServerParameters(
+    command="python",
+    args=["/Users/sam/Xiaoluyy/ai/agent_test/app/fastmcp/math_tools.py"],
+)
+
+async def main():
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await load_mcp_tools(session)  # 自动加载MCP服务器提供的工具
+            print(tools)
+            agent = create_react_agent(llm, tools)  # 创建React Agent
+            response = await agent.ainvoke(input={"messages": [("user", "what's (3 + 5) x 12?")]})  # 调用Agent
+            print(response)
+
+```
+
+**第四步：启动智能体**
+
+```bash
 asyncio.run(main())
 ```
 
 运行结果：
 
 ```bash
-{
-  'input': '你是一个智能助手，可以调用高德 MCP 工具。\n\n问题: \n- 我五月底端午节计划去杭州游玩4天。\n- 帮制作旅行攻略，考虑出行时间和路线，以及天气状况路线规划。\n- 制作网页地图自定义绘制旅游路线和位置。\n    - 网页使用简约美观页面风格，景区图片以卡片展示。\n- 行程规划结果在高德地图app展示，并集成到h5页面中。\n    - 同一天行程景区之间我想打车前往。\n', 
-  'output': '已为您规划杭州端午四日游完整攻略：\n\n一、天气建议\n5月20日小雨转中雨，建议首日游览西湖周边室内景点（雷峰塔/河坊街），21日晴天安排千岛湖深度游，22日多云游览灵隐寺/龙井村，23日雨天预留缓冲。\n\n二、行程安排\nDay1：西湖文化之旅\n10:00 西湖音乐喷泉（B0FFGOWPEV）→ 12:00 湖滨银泰午餐 → 14:00 雷峰塔景区（B023B09LKR）→ 17:00 河坊街（B0FFGQ772L）\n打车链接：amapuri://drive/takeTaxi?sourceApplication=amapplatform&slat=30.240742&slon=120.146696&sname=西湖音乐喷泉&dlon=120.159374&dlat=30.244066&dname=雷峰塔景区\n\nDay2：自然风光探索\n09:00 灵隐寺（B023B02842）→ 12:30 龙井村（B023B17X30）品茶 → 16:00 茶园徒步\n景区间距仅5公里，推荐骑行路线：amapuri://map/route?from=navi&to=120.091753,29.984802\n\nDay3：千岛湖深度游\n08:30 千岛湖景区（B023B1E89A）乘船游览梅峰岛/猴岛，16:00 返回市区\n驾车路线：amapuri://map/route?from=navi&to=119.046341,29.768676\n\n三、H5地图集成\n自定义地图链接：amapuri://workInAmap/createWithToken?polymericId=mcp_6670030fac8142858790afc5db56207e\n包含每日行程卡片式展示，点击POI可查看景区图片：\n- 西湖：https://store.is.autonavi.com/showpic/046f7db069e380fdc29375807debee83\n- 灵隐寺：http://store.is.autonavi.com/showpic/4aa0a6a1b6ee72c9833441f363cbb43a\n- 千岛湖：https://aos-comment.amap.com/B0FFGQ772L/comment/dfda683d7fd2855875b23a290a590d3b_2048_2048_80.jpg'}
+{'messages': [
+  HumanMessage(content="what's (3 + 5) x 12?", additional_kwargs={}, response_metadata={}, id='baefbd02-0e6f-4238-aac0-0989852ea097'),
+  AIMessage(content='', additional_kwargs={'tool_calls': [{'index': 0, 'id': 'call_3f383dc314fe4b0ebc70c8', 'function': {'arguments': '{"a": 3, "b": 5}', 'name': 'add'}, 'type': 'function'}]}, response_metadata={'finish_reason': 'tool_calls', 'model_name': 'qwen3-235b-a22b'}, id='run--7477b051-f147-4772-be27-fc443813e5e4-0', tool_calls=[{'name': 'add', 'args': {'a': 3, 'b': 5}, 'id': 'call_3f383dc314fe4b0ebc70c8', 'type': 'tool_call'}]),
+  ToolMessage(content='8', name='add', id='569efaef-c880-4b96-8a76-ecb1184da537', tool_call_id='call_3f383dc314fe4b0ebc70c8'),
+  AIMessage(content='', additional_kwargs={'tool_calls': [{'index': 0, 'id': 'call_287db3d531af4d2d82adba', 'function': {'arguments': '{"a": 8, "b": 12}', 'name': 'multiply'}, 'type': 'function'}]}, response_metadata={'finish_reason': 'tool_calls', 'model_name': 'qwen3-235b-a22b'}, id='run--506ce062-0dcc-4217-bcca-0e1be306ad0c-0', tool_calls=[{'name': 'multiply', 'args': {'a': 8, 'b': 12}, 'id': 'call_287db3d531af4d2d82adba', 'type': 'tool_call'}]),
+  ToolMessage(content='96', name='multiply', id='69357610-bd4b-4486-8192-b87a3d35d6eb', tool_call_id='call_287db3d531af4d2d82adba'),
+  AIMessage(content='The result of $(3 + 5) \\times 12$ is $\\boxed{96}$.', additional_kwargs={}, response_metadata={'finish_reason': 'stop', 'model_name': 'qwen3-235b-a22b'}, id='run--428dda6d-ebd6-4efd-beb4-b93e7c595ecb-0')
+  ]}
 ```
 
-# 能力扩展和优化
+# 实现基于sse的mcp服务
 
-# 第一步：增加文件工具
+注意：sse已被官方废弃，优先使用streamable-http，两者从代码层面来看，差异不大
 
-安装 langchain_community：
+sse/streamable-http模式mcp服务架构：
+
+![](https://cdn.nlark.com/yuque/0/2025/jpeg/375559/1747493110889-cdc3410d-207d-4b21-b652-e06c095ae654.jpeg)
+
+# 第一步：创建mcp server端
 
 ```bash
-$ uv add langchain_community
+if __name__ == "__main__":
+    mcp.run(transport="sse")
 ```
 
-```bash
-获取文件工具：
-from langchain_community.agent_toolkits import FileManagementToolkit
+**第二步：启动mcp server**
 
-file_toolkit = FileManagementToolkit(root_dir="/Users/sam/llm/.temp")
-file_tools = file_toolkit.get_tools()
+```bash
+$ python app/fastmcp/sse/math_tools.py
 ```
 
-**第二步：扩展智能体工具**
+# 第三步：开发mcp client
+
+与 stdio 差异点，其余相同：
 
 ```bash
-agent = initialize_agent(
-    tools=tools + file_tools,
-    llm=llm,
-    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-    verbose=True,
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+client = MultiServerMCPClient(
+    {
+        "math": {
+            "url": "http://127.0.0.1:8000/sse",
+            "transport": "sse",
+        }
+    }
 )
+tools = await client.get_tools()
 ```
 
-**第三步：优化提示词**
+**第四步：启动智能体**
 
 ```bash
- prompt = prompt_template.format(input="""
-- 我五月底端午节计划去杭州游玩4天。
-- 帮制作旅行攻略，考虑出行时间和路线，以及天气状况路线规划。
-- 行程规划结果在高德地图app展示，并集成到h5页面中。
-    - 同一天行程景区之间我想打车前往。
-- 制作网页地图自定义绘制旅游路线和位置，并提供专属地图链接、打车链接、骑行路线、驾车路径等。
-- 将网页保存到：/Users/sam/llm/.temp/amap.html
-""")
+asyncio.run(main())
 ```
 
-此时智能体会生成旅行计划，并开发 amap.html 保存到本地文件夹中
+# 实现基于streamable_http的mcp服务
+
+启动服务：
+
+```bash
+mcp.run(transport="streamable-http")
+```
+
+客户端连接服务：
+
+```bash
+client = MultiServerMCPClient(
+    {
+        "math": {
+            "url": "http://127.0.0.1:8000/mcp",
+            "transport": "streamable_http",
+        }
+    }
+)
+tools = await client.get_tools()
+```
+
+# 附python with 语法
+
+```bash
+from contextlib import contextmanager
+
+@contextmanager
+def go(num1, num2):
+    print("go!")
+    yield num1, num2, num1 + num2
+
+with go(1, 2) as n:
+    print(n)
+```
