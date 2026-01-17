@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>昆明五一4天旅行攻略</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .weather-info {
+            background: #f8f9fa;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .weather-day {
+            text-align: center;
+            padding: 15px;
+            min-width: 120px;
+        }
+
+        .weather-day .date {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .weather-day .temp {
+            font-size: 1.5em;
+            color: #333;
+            margin: 5px 0;
+        }
+
+        .weather-day .desc {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .day-section {
+            margin-bottom: 50px;
+        }
+
+        .day-title {
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .day-title::before {
+            content: "📅";
+            font-size: 1.2em;
+        }
+
+        .attractions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .attraction-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .attraction-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3em;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .card-desc {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #667eea;
+            border: 1px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .map-container {
+            margin-top: 30px;
+            height: 500px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+            background: #f0f0f0;
+        }
+
+        .custom-map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .map-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .map-marker {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            cursor: pointer;
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+
+        .map-marker:hover {
+            transform: translate(-50%, -100%) scale(1.2);
+        }
+
+        .marker-pin {
+            width: 30px;
+            height: 40px;
+            background: #667eea;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .marker-pin::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        .marker-label {
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(102, 126, 234, 0.95);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            font-weight: 500;
+        }
+
+        .marker-number {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+            color: #667eea;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 1;
+        }
+
+        .route-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .route-info h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .route-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .route-item::before {
+            content: "🚖";
+            font-size: 1.2em;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .attractions-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .weather-info {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌸 昆明五一4天旅行攻略 🌸</h1>
+            <p>探索春城之美，感受四季如春的浪漫</p>
+        </div>
+
+        <div class="weather-info">
+            <div class="weather-day">
+                <div class="date">5月1日</div>
+                <div class="temp">18-25°C</div>
+                <div class="desc">☀️ 晴转多云</div>
+            </div>
+            <div class="weather-day">
+                <div class="date">5月2日</div>
+                <div class="temp">17-24°C</div>
+                <div class="desc">⛅ 多云</div>
+            </div>
+            <div class="weather-day">
+                <div class="date">5月3日</div>
+                <div class="temp">16-23°C</div>
+                <div class="desc">🌤️ 多云转晴</div>
+            </div>
+            <div class="weather-day">
+                <div class="date">5月4日</div>
+                <div class="temp">19-26°C</div>
+                <div class="desc">☀️ 晴天</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 第一天 -->
+            <div class="day-section">
+                <h2 class="day-title">第一天：5月1日 - 市区经典游</h2>
+                <div class="attractions-grid">
+                    <div class="attraction-card" data-lng="102.714601" data-lat="25.049153" data-name="翠湖公园">
+                        <div class="card-image">🌊</div>
+                        <div class="card-content">
+                            <h3 class="card-title">翠湖公园</h3>
+                            <p class="card-desc">昆明市区最美丽的公园，四季如春，湖光山色，是观赏红嘴鸥的最佳地点。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.714601,25.049153&name=翠湖公园" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.714601,25.049153&toname=翠湖公园&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attraction-card" data-lng="102.704722" data-lat="25.038889" data-name="云南大学">
+                        <div class="card-image">🏛️</div>
+                        <div class="card-content">
+                            <h3 class="card-title">云南大学</h3>
+                            <p class="card-desc">百年名校，校园内古建筑与现代建筑完美融合，是感受学术氛围的好地方。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.704722,25.038889&name=云南大学" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.704722,25.038889&toname=云南大学&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attraction-card" data-lng="102.718056" data-lat="25.041389" data-name="昆明老街">
+                        <div class="card-image">🏮</div>
+                        <div class="card-content">
+                            <h3 class="card-title">昆明老街</h3>
+                            <p class="card-desc">体验老昆明风情，品尝地道小吃，购买特色手工艺品。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.718056,25.041389&name=昆明老街" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.718056,25.041389&toname=昆明老街&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-container" id="map-day1"></div>
+                <div class="route-info">
+                    <h3>🚖 第一天路线规划</h3>
+                    <div class="route-item">
+                        <span>翠湖公园 → 云南大学（约2公里，打车约8分钟）</span>
+                    </div>
+                    <div class="route-item">
+                        <span>云南大学 → 昆明老街（约1.5公里，打车约6分钟）</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第二天 -->
+            <div class="day-section">
+                <h2 class="day-title">第二天：5月2日 - 石林奇观</h2>
+                <div class="attractions-grid">
+                    <div class="attraction-card" data-lng="103.326389" data-lat="24.823056" data-name="石林风景区">
+                        <div class="card-image">🗿</div>
+                        <div class="card-content">
+                            <h3 class="card-title">石林风景区</h3>
+                            <p class="card-desc">世界自然遗产，奇峰异石，被誉为"天下第一奇观"，感受大自然的鬼斧神工。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=103.326389,24.823056&name=石林风景区" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=103.326389,24.823056&toname=石林风景区&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attraction-card" data-lng="103.340000" data-lat="24.830000" data-name="九乡风景区">
+                        <div class="card-image">🕳️</div>
+                        <div class="card-content">
+                            <h3 class="card-title">九乡风景区</h3>
+                            <p class="card-desc">地下溶洞奇观，钟乳石千姿百态，是地质奇观的绝佳展示。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=103.340000,24.830000&name=九乡风景区" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=103.340000,24.830000&toname=九乡风景区&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-container" id="map-day2"></div>
+                <div class="route-info">
+                    <h3>🚖 第二天路线规划</h3>
+                    <div class="route-item">
+                        <span>昆明市区 → 石林风景区（约78公里，打车约1.5小时）</span>
+                    </div>
+                    <div class="route-item">
+                        <span>石林风景区 → 九乡风景区（约22公里，打车约30分钟）</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第三天 -->
+            <div class="day-section">
+                <h2 class="day-title">第三天：5月3日 - 滇池风光</h2>
+                <div class="attractions-grid">
+                    <div class="attraction-card" data-lng="102.658333" data-lat="24.816667" data-name="滇池">
+                        <div class="card-image">🌊</div>
+                        <div class="card-content">
+                            <h3 class="card-title">滇池</h3>
+                            <p class="card-desc">云南最大的淡水湖，湖光山色，是观赏海鸥和日落的绝佳地点。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.658333,24.816667&name=滇池" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.658333,24.816667&toname=滇池&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attraction-card" data-lng="102.650000" data-lat="24.820000" data-name="西山森林公园">
+                        <div class="card-image">⛰️</div>
+                        <div class="card-content">
+                            <h3 class="card-title">西山森林公园</h3>
+                            <p class="card-desc">登高望远，俯瞰滇池全景，感受"睡美人"的美丽传说。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.650000,24.820000&name=西山森林公园" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.650000,24.820000&toname=西山森林公园&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attraction-card" data-lng="102.680000" data-lat="24.840000" data-name="云南民族村">
+                        <div class="card-image">🏘️</div>
+                        <div class="card-content">
+                            <h3 class="card-title">云南民族村</h3>
+                            <p class="card-desc">体验云南25个少数民族的文化风情，观看民族歌舞表演。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.680000,24.840000&name=云南民族村" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.680000,24.840000&toname=云南民族村&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-container" id="map-day3"></div>
+                <div class="route-info">
+                    <h3>🚖 第三天路线规划</h3>
+                    <div class="route-item">
+                        <span>昆明市区 → 滇池（约15公里，打车约25分钟）</span>
+                    </div>
+                    <div class="route-item">
+                        <span>滇池 → 西山森林公园（约3公里，打车约8分钟）</span>
+                    </div>
+                    <div class="route-item">
+                        <span>西山森林公园 → 云南民族村（约5公里，打车约12分钟）</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第四天 -->
+            <div class="day-section">
+                <h2 class="day-title">第四天：5月4日 - 花都昆明</h2>
+                <div class="attractions-grid">
+                    <div class="attraction-card" data-lng="102.750000" data-lat="25.070000" data-name="斗南花市">
+                        <div class="card-image">🌸</div>
+                        <div class="card-content">
+                            <h3 class="card-title">斗南花市</h3>
+                            <p class="card-desc">亚洲最大的鲜切花交易市场，感受花都昆明的魅力，购买鲜花和干花。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.750000,25.070000&name=斗南花市" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.750000,25.070000&toname=斗南花市&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attraction-card" data-lng="102.720000" data-lat="25.050000" data-name="金马碧鸡坊">
+                        <div class="card-image">🏛️</div>
+                        <div class="card-content">
+                            <h3 class="card-title">金马碧鸡坊</h3>
+                            <p class="card-desc">昆明的地标建筑，感受老昆明的历史文化底蕴。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.720000,25.050000&name=金马碧鸡坊" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.720000,25.050000&toname=金马碧鸡坊&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="attraction-card" data-lng="102.710000" data-lat="25.040000" data-name="南屏步行街">
+                        <div class="card-image">🛍️</div>
+                        <div class="card-content">
+                            <h3 class="card-title">南屏步行街</h3>
+                            <p class="card-desc">昆明最繁华的商业街，购物、美食、娱乐一站式体验。</p>
+                            <div class="card-actions">
+                                <a href="https://uri.amap.com/marker?position=102.710000,25.040000&name=南屏步行街" class="btn btn-primary" target="_blank">📍 查看地图</a>
+                                <a href="https://uri.amap.com/navigation?to=102.710000,25.040000&toname=南屏步行街&mode=car" class="btn btn-secondary" target="_blank">🚖 打车前往</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-container" id="map-day4"></div>
+                <div class="route-info">
+                    <h3>🚖 第四天路线规划</h3>
+                    <div class="route-item">
+                        <span>昆明市区 → 斗南花市（约12公里，打车约20分钟）</span>
+                    </div>
+                    <div class="route-item">
+                        <span>斗南花市 → 金马碧鸡坊（约15公里，打车约25分钟）</span>
+                    </div>
+                    <div class="route-item">
+                        <span>金马碧鸡坊 → 南屏步行街（约1公里，步行即可）</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🌸 祝您昆明之旅愉快！记得带上相机，记录美好时光 🌸</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">本攻略使用高德地图API制作，所有路线规划仅供参考</p>
+        </div>
+    </div>
+
+    <script>
+        // 高德地图API Key
+        const AMAP_KEY = 'a2854b8c97e16885f90e697d0c121bcb';
+
+        // 各天的景点数据
+        const dayData = {
+            day1: [
+                { name: '翠湖公园', lng: 102.714601, lat: 25.049153 },
+                { name: '云南大学', lng: 102.704722, lat: 25.038889 },
+                { name: '昆明老街', lng: 102.718056, lat: 25.041389 }
+            ],
+            day2: [
+                { name: '石林风景区', lng: 103.326389, lat: 24.823056 },
+                { name: '九乡风景区', lng: 103.340000, lat: 24.830000 }
+            ],
+            day3: [
+                { name: '滇池', lng: 102.658333, lat: 24.816667 },
+                { name: '西山森林公园', lng: 102.650000, lat: 24.820000 },
+                { name: '云南民族村', lng: 102.680000, lat: 24.840000 }
+            ],
+            day4: [
+                { name: '斗南花市', lng: 102.750000, lat: 25.070000 },
+                { name: '金马碧鸡坊', lng: 102.720000, lat: 25.050000 },
+                { name: '南屏步行街', lng: 102.710000, lat: 25.040000 }
+            ]
+        };
+
+        // 坐标转换：经纬度转像素坐标（基于高德地图墨卡托投影）
+        function lngLatToPixel(lng, lat, centerLng, centerLat, zoom, mapWidth, mapHeight) {
+            // 高德地图使用GCJ-02坐标系，使用墨卡托投影
+            const D = Math.PI / 180;
+            const R = 6378137; // 地球半径（米）
+            
+            // 将经纬度转换为墨卡托坐标
+            function mercatorX(lng) {
+                return lng * D * R;
+            }
+            
+            function mercatorY(lat) {
+                const sin = Math.sin(lat * D);
+                return R / 2 * Math.log((1 + sin) / (1 - sin));
+            }
+            
+            // 计算中心点的墨卡托坐标
+            const centerX = mercatorX(centerLng);
+            const centerY = mercatorY(centerLat);
+            
+            // 计算目标点的墨卡托坐标
+            const targetX = mercatorX(lng);
+            const targetY = mercatorY(lat);
+            
+            // 计算像素坐标
+            const scale = Math.pow(2, zoom);
+            const pixelX = (targetX - centerX) / (256 / scale) + mapWidth / 2;
+            const pixelY = (centerY - targetY) / (256 / scale) + mapHeight / 2; // Y轴翻转
+            
+            return { x: pixelX, y: pixelY };
+        }
+
+        // 计算地图中心点和缩放级别
+        function calculateMapBounds(attractions) {
+            const lngs = attractions.map(a => a.lng);
+            const lats = attractions.map(a => a.lat);
+            const minLng = Math.min(...lngs);
+            const maxLng = Math.max(...lngs);
+            const minLat = Math.min(...lats);
+            const maxLat = Math.max(...lats);
+            
+            const centerLng = (minLng + maxLng) / 2;
+            const centerLat = (minLat + maxLat) / 2;
+            
+            // 计算合适的缩放级别
+            const lngDiff = maxLng - minLng;
+            const latDiff = maxLat - minLat;
+            const maxDiff = Math.max(lngDiff, latDiff);
+            
+            let zoom = 13;
+            if (maxDiff > 0.5) zoom = 10;
+            else if (maxDiff > 0.2) zoom = 11;
+            else if (maxDiff > 0.1) zoom = 12;
+            else if (maxDiff > 0.05) zoom = 13;
+            else if (maxDiff > 0.02) zoom = 14;
+            else zoom = 15;
+            
+            return { centerLng, centerLat, zoom, minLng, maxLng, minLat, maxLat };
+        }
+
+        // 初始化自定义地图
+        function initCustomMap(containerId, attractions) {
+            const container = document.getElementById(containerId);
+            const mapWidth = container.offsetWidth;
+            const mapHeight = container.offsetHeight;
+            
+            // 计算地图参数
+            const bounds = calculateMapBounds(attractions);
+            
+            // 创建Canvas
+            const canvas = document.createElement('canvas');
+            canvas.className = 'map-canvas';
+            canvas.width = mapWidth;
+            canvas.height = mapHeight;
+            container.appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            
+            // 生成静态地图URL（不包含标记，我们自定义绘制）
+            const staticMapUrl = `https://restapi.amap.com/v3/staticmap?` +
+                `location=${bounds.centerLng},${bounds.centerLat}&` +
+                `zoom=${bounds.zoom}&` +
+                `size=${mapWidth}*${mapHeight}&` +
+                `key=${AMAP_KEY}`;
+            
+            // 加载底图
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() {
+                // 绘制底图
+                ctx.drawImage(img, 0, 0, mapWidth, mapHeight);
+                
+                // 计算所有点的像素坐标
+                const pixels = attractions.map(attraction => {
+                    return lngLatToPixel(
+                        attraction.lng, 
+                        attraction.lat, 
+                        bounds.centerLng, 
+                        bounds.centerLat, 
+                        bounds.zoom, 
+                        mapWidth, 
+                        mapHeight
+                    );
+                });
+                
+                // 绘制自定义路线（带箭头）
+                if (attractions.length > 1) {
+                    // 绘制路线阴影
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.lineWidth = 6;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    pixels.forEach((pixel, index) => {
+                        if (index === 0) {
+                            ctx.moveTo(pixel.x, pixel.y);
+                        } else {
+                            ctx.lineTo(pixel.x, pixel.y);
+                        }
+                    });
+                    ctx.stroke();
+                    
+                    // 绘制主路线
+                    ctx.strokeStyle = '#667eea';
+                    ctx.lineWidth = 4;
+                    ctx.shadowColor = 'rgba(102, 126, 234, 0.6)';
+                    ctx.shadowBlur = 6;
+                    ctx.beginPath();
+                    pixels.forEach((pixel, index) => {
+                        if (index === 0) {
+                            ctx.moveTo(pixel.x, pixel.y);
+                        } else {
+                            ctx.lineTo(pixel.x, pixel.y);
+                        }
+                    });
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                    
+                    // 绘制路线箭头
+                    for (let i = 0; i < pixels.length - 1; i++) {
+                        const start = pixels[i];
+                        const end = pixels[i + 1];
+                        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+                        const arrowLength = 12;
+                        const arrowAngle = Math.PI / 6;
+                        
+                        ctx.fillStyle = '#667eea';
+                        ctx.beginPath();
+                        ctx.moveTo(end.x, end.y);
+                        ctx.lineTo(
+                            end.x - arrowLength * Math.cos(angle - arrowAngle),
+                            end.y - arrowLength * Math.sin(angle - arrowAngle)
+                        );
+                        ctx.lineTo(
+                            end.x - arrowLength * Math.cos(angle + arrowAngle),
+                            end.y - arrowLength * Math.sin(angle + arrowAngle)
+                        );
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+                
+                // 绘制自定义标记
+                pixels.forEach((pixel, index) => {
+                    const attraction = attractions[index];
+                    
+                    // 绘制标记外圈阴影
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.beginPath();
+                    ctx.arc(pixel.x, pixel.y + 2, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 绘制标记主圆圈
+                    const gradient = ctx.createRadialGradient(
+                        pixel.x - 3, pixel.y - 3, 0,
+                        pixel.x, pixel.y, 18
+                    );
+                    gradient.addColorStop(0, '#8a9eff');
+                    gradient.addColorStop(1, '#667eea');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(pixel.x, pixel.y, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 绘制白色外圈
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(pixel.x, pixel.y, 18, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // 绘制数字
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText((index + 1).toString(), pixel.x, pixel.y);
+                    
+                    // 绘制标签
+                    const labelText = `${index + 1}. ${attraction.name}`;
+                    ctx.font = '500 13px Arial';
+                    const textMetrics = ctx.measureText(labelText);
+                    const labelWidth = textMetrics.width + 20;
+                    const labelHeight = 28;
+                    const labelX = pixel.x - labelWidth / 2;
+                    const labelY = pixel.y - 50;
+                    
+                    // 标签背景（带圆角）
+                    ctx.fillStyle = 'rgba(102, 126, 234, 0.95)';
+                    ctx.beginPath();
+                    ctx.roundRect(labelX, labelY, labelWidth, labelHeight, 14);
+                    ctx.fill();
+                    
+                    // 标签边框
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.roundRect(labelX, labelY, labelWidth, labelHeight, 14);
+                    ctx.stroke();
+                    
+                    // 标签文字
+                    ctx.fillStyle = 'white';
+                    ctx.font = '500 13px Arial';
+                    ctx.fillText(labelText, pixel.x, labelY + labelHeight / 2);
+                });
+            };
+            img.src = staticMapUrl;
+        }
+
+        // 添加roundRect支持（兼容性处理）
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+        }
+
+        // 初始化所有天的地图
+        window.onload = function() {
+            // 延迟初始化，确保容器尺寸已计算
+            setTimeout(() => {
+                initCustomMap('map-day1', dayData.day1);
+                initCustomMap('map-day2', dayData.day2);
+                initCustomMap('map-day3', dayData.day3);
+                initCustomMap('map-day4', dayData.day4);
+            }, 100);
+        };
+    </script>
+</body>
+</html>
