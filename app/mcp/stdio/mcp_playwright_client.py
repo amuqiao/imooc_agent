@@ -58,7 +58,6 @@ async def main():
                 navigate_tool = tools_dict.get('playwright_navigate')
                 get_text_tool = tools_dict.get('playwright_get_visible_text')
                 playwright_close_tool = tools_dict.get('playwright_close')
-                
                 print("\n" + "=" * 60)
                 print("开始执行浏览器操作...")
                 print("=" * 60 + "\n")
