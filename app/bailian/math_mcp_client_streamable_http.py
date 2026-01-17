@@ -31,9 +31,9 @@ async def main():
     """主函数"""
     # 初始化LLM
     llm = init_llm()
-
+    
     print("连接到MCP服务器（streamable_http模式）...")
-
+    
     # 使用MultiServerMCPClient连接已经运行的MCP服务器
     client = MultiServerMCPClient(
         {
@@ -43,26 +43,26 @@ async def main():
             }
         }
     )
-
+    
     # 加载MCP工具
     tools = await client.get_tools()
     print(f"加载了{len(tools)}个工具：{[tool.name for tool in tools]}")
-
+    
     # 创建React Agent
     agent = create_react_agent(llm, tools)
     print("Agent创建成功！")
-
+    
     # 调用Agent
     user_input = "what's (3 + 5) x 12?"
     print(f"\n用户输入：{user_input}")
-
+    
     response = await agent.ainvoke(input={"messages": [("user", user_input)]})
-
+    
     print(f"\nAgent响应：")
     for msg in response["messages"]:
         if hasattr(msg, "content") and msg.content:
             print(f"  {msg.content}")
-
+    
     print("\n测试完成！")
 
 
