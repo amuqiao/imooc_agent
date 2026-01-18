@@ -9,6 +9,11 @@ MCP客户端示例 - 使用stdio传输方式
 import asyncio
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载项目根目录的 .env 文件
+env_path = Path(__file__).parent.parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client

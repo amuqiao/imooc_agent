@@ -6,6 +6,13 @@
 """
 # ===================== 全部正确的导入（核心修复，必看） =====================
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载项目根目录的 .env 文件
+env_path = Path(__file__).parent.parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
 from langchain_openai import ChatOpenAI
 from langchain_experimental.tools.python.tool import PythonREPLTool
 from pydantic import SecretStr
