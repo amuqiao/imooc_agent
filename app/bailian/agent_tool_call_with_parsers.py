@@ -5,6 +5,7 @@
 根据 docs/note.md 实现智能体开发的完整流程
 包括：初始化工具、初始化大模型、创建智能体、调用智能体
 """
+import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import StructuredTool
@@ -21,6 +22,7 @@ from enum import Enum
 # 1. 定义工具相关的入参模型
 class AddInputArgs(BaseModel):
     """加法工具的入参校验模型"""
+
     a: int = Field(description="first number")
     b: int = Field(description="second number")
 
@@ -52,10 +54,14 @@ def create_calc_tools():
 # 5. 初始化大模型
 def init_llm():
     """初始化通义千问大模型"""
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        raise ValueError("环境变量 DASHSCOPE_API_KEY 未设置，请在 .env 文件中配置")
+    
     return ChatOpenAI(
         model="qwen-plus",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        api_key=SecretStr("sk-9ec27f85396f41788a441841e6d4a718"),
+        api_key=SecretStr(api_key),
         temperature=0,
     )
 
@@ -69,6 +75,7 @@ def create_llm_with_tools(llm, tools):
 # 7. 定义输出解析器相关的Pydantic模型
 class Summary(BaseModel):
     """计算结果摘要模型"""
+
     result: int = Field(description="计算结果")
     args: list = Field(description="计算参数")
 
@@ -77,30 +84,34 @@ class Summary(BaseModel):
 def test_basic_parsers(llm):
     """测试基础输出解析器"""
     print("\n=== 测试基础输出解析器 ===")
-    
+
     # 1. StrOutputParser
     str_parser = StrOutputParser()
     chain = llm | str_parser
     result = chain.invoke("你好，世界！")
     print(f"StrOutputParser: {result}")
-    
+
     # 2. CommaSeparatedListOutputParser
     comma_parser = CommaSeparatedListOutputParser()
     comma_parser_instructions = comma_parser.get_format_instructions()
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", f"请按照以下格式返回：{comma_parser_instructions}"),
-        ("human", "请列出三种水果")
-    ])
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", f"请按照以下格式返回：{comma_parser_instructions}"),
+            ("human", "请列出三种水果"),
+        ]
+    )
     chain = prompt | llm | comma_parser
     result = chain.invoke({})
     print(f"CommaSeparatedListOutputParser: {result}")
-    
+
     # 3. SimpleJsonOutputParser
     json_parser = SimpleJsonOutputParser()
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "请返回一个JSON对象，包含name和age字段"),
-        ("human", "请创建一个用户信息")
-    ])
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "请返回一个JSON对象，包含name和age字段"),
+            ("human", "请创建一个用户信息"),
+        ]
+    )
     chain = prompt | llm | json_parser
     result = chain.invoke({})
     print(f"SimpleJsonOutputParser: {result}")
@@ -110,16 +121,21 @@ def test_basic_parsers(llm):
 def test_pydantic_parser(llm):
     """测试Pydantic输出解析器"""
     print("\n=== 测试Pydantic输出解析器 ===")
-    
+
     # 创建解析器
     parser = PydanticOutputParser(pydantic_object=Summary)
-    
+
     # 创建提示模板
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "请计算100+100的结果，并返回结果和参数"),
-        ("human", "请返回一个JSON对象，包含result和args字段，其中result是计算结果，args是计算参数")
-    ])
-    
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "请计算100+100的结果，并返回结果和参数"),
+            (
+                "human",
+                "请返回一个JSON对象，包含result和args字段，其中result是计算结果，args是计算参数",
+            ),
+        ]
+    )
+
     # 构建链
     chain = prompt | llm | parser
     result = chain.invoke({})
@@ -132,12 +148,12 @@ def test_pydantic_parser(llm):
 def execute_tool_call(response, tools):
     """执行工具调用"""
     tools_dict = {tool.name: tool for tool in tools}
-    
+
     if hasattr(response, "tool_calls") and response.tool_calls:
         for tool_call in response.tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
-            
+
             if tool_name in tools_dict:
                 tool = tools_dict[tool_name]
                 return tool.invoke(tool_args)
@@ -151,48 +167,50 @@ def execute_tool_call(response, tools):
 def main():
     """主函数"""
     print("=== 智能体开发流程测试 ===")
-    
+
     # 步骤1：初始化工具
     print("\n步骤1：初始化工具")
     calc_tools = create_calc_tools()
     print("✓ 工具初始化完成")
-    
+
     # 步骤2：初始化大模型
     print("\n步骤2：初始化大模型")
     llm = init_llm()
     print("✓ 大模型初始化完成")
-    
+
     # 步骤3：创建带工具的大模型
     print("\n步骤3：创建带工具的大模型")
     llm_with_tools = create_llm_with_tools(llm, calc_tools)
     print("✓ 带工具的大模型创建完成")
-    
+
     # 步骤4：调用带工具的大模型
     print("\n步骤4：调用带工具的大模型")
-    
+
     # 创建提示模板
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "你是一位计算专家，擅长回答使用工具进行数学计算领域的问题。"),
-        ("human", "用户问题：{question}")
-    ])
-    
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "你是一位计算专家，擅长回答使用工具进行数学计算领域的问题。"),
+            ("human", "用户问题：{question}"),
+        ]
+    )
+
     # 组装调用链
     chain = prompt | llm_with_tools
-    
+
     # 测试用例
     messages = prompt.format_messages(question="100+100=？")
     print("调用带工具的大模型计算 100+100...")
     response = chain.invoke({"question": "100+100=？"})
     print(f"模型响应：{response}")
-    
+
     # 执行工具调用
     result = execute_tool_call(response, calc_tools)
     print(f"工具执行结果：{result}")
-    
+
     # 测试输出解析器
     test_basic_parsers(llm)
     test_pydantic_parser(llm)
-    
+
     print("\n=== 测试完成 ===")
 
 

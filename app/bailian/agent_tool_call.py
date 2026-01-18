@@ -4,6 +4,7 @@
 使用LangChain调用通义千问并绑定自定义工具的示例脚本
 """
 
+import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import StructuredTool
@@ -34,10 +35,14 @@ def multiply(a: int, b: int) -> int:
 # 3. 初始化大模型
 def init_llm():
     """初始化通义千问大模型"""
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        raise ValueError("环境变量 DASHSCOPE_API_KEY 未设置，请在 .env 文件中配置")
+    
     return ChatOpenAI(
         model="qwen-plus",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        api_key=SecretStr("sk-9ec27f85396f41788a441841e6d4a718"),  # 加密存储api_key
+        api_key=SecretStr(api_key),
         streaming=True,  # 开启流式输出
     )
 

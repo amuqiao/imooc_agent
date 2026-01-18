@@ -6,6 +6,7 @@ MCP Playwright 客户端 - v2 版本
 """
 
 import asyncio
+import os
 import sys
 
 # 设置Windows控制台编码为UTF-8
@@ -29,10 +30,14 @@ from langgraph.prebuilt import create_react_agent
 # ===================== 初始化LLM =====================
 def init_llm():
     """初始化通义千问大模型"""
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        raise ValueError("环境变量 DASHSCOPE_API_KEY 未设置，请在 .env 文件中配置")
+    
     return ChatOpenAI(
         model="qwen-plus",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        api_key=SecretStr("sk-9ec27f85396f41788a441841e6d4a718"),
+        api_key=SecretStr(api_key),
         temperature=0,
         max_tokens=2048
     )
