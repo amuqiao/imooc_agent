@@ -27,7 +27,15 @@ from langchain_community.chat_message_histories import (
     FileChatMessageHistory,
 )
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_community.agent_toolkits.file_management import FileManagementToolkit
+from langchain_core.tools import Tool
 from pydantic import SecretStr
+
+# 使用langgraph中的create_react_agent，忽略警告
+from langgraph.prebuilt import create_react_agent
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 # ===================== 1. 配置管理 =====================
@@ -126,39 +134,68 @@ class MultiTurnConversationManager:
         self.config = config or ConversationConfig.in_memory()
         self.store = ConversationStore(self.config)
         self.system_prompt = (
-            system_prompt or "你是一个智能助手，擅长帮助用户解决各种问题。"
+            system_prompt
+            or "你是一个智能助手，擅长帮助用户解决各种问题。你可以使用以下文件管理工具：\n"
+            "- copy_file: 在指定位置创建文件的副本\n"
+            "- create_directory: 创建目录，如果目录已存在则忽略\n"
+            "- file_delete: 删除一个文件\n"
+            "- file_search: 在子目录中递归搜索与正则表达式模式匹配的文件\n"
+            "- move_file: 将文件从一个位置移动到另一个位置，或者重命名文件\n"
+            "- read_file: 从磁盘读取文件内容\n"
+            "- write_file: 将文件写入磁盘，可以选择追加到现有文件\n"
+            "- list_directory: 列出指定文件夹中的文件\n"
+            "所有文件操作都将在指定的临时目录中执行。如果需要执行文件操作，请使用适当的工具，并遵循工具的参数格式要求。"
         )
-        self._chain = None
-        self._chain_with_history = None
+        self._agent = None
+        self._tools = None
+        self._init_tools()
 
-    def _create_prompt_template(self) -> ChatPromptTemplate:
-        """创建提示词模板"""
-        return ChatPromptTemplate.from_messages(
-            [
-                ("system", self.system_prompt),
-                MessagesPlaceholder(variable_name="chat_history", optional=True),
-                ("human", "{question}"),
-            ]
+    def _init_tools(self):
+        """初始化文件管理工具"""
+        # 创建 FileManagementToolkit 实例，设置根目录为当前工作目录
+        toolkit = FileManagementToolkit(
+            root_dir="e:/github_project/imooc_agent/.temp",  # 设置根目录为指定的 temp 目录
+            selected_tools=[
+                "copy_file",  # 在指定位置创建文件的副本
+                "file_delete",  # 删除一个文件
+                "file_search",  # 在子目录中递归搜索与正则表达式模式匹配的文件
+                "move_file",  # 将文件从一个位置移动到另一个位置，或者重命名文件
+                "read_file",  # 从磁盘读取文件内容
+                "write_file",  # 将文件写入磁盘，可以选择追加到现有文件
+                "list_directory",  # 列出指定文件夹中的文件
+            ],  # 选择要使用的工具
         )
+        # 获取工具列表
+        self._tools = toolkit.get_tools()
 
-    def _get_base_chain(self):
-        """获取基础链"""
-        if self._chain is None:
-            prompt = self._create_prompt_template()
-            self._chain = prompt | self.llm | StrOutputParser()
-        return self._chain
+        # 导入os模块，用于添加创建目录工具
+        import os
+        from langchain_core.tools import Tool
 
-    def get_chain_with_history(self) -> RunnableWithMessageHistory:
-        """获取带历史记录的链"""
-        if self._chain_with_history is None:
-            base_chain = self._get_base_chain()
-            self._chain_with_history = RunnableWithMessageHistory(
-                runnable=base_chain,
-                get_session_history=self.store.get_session_history,
-                input_messages_key="question",
-                history_messages_key="chat_history",
+        # 定义创建目录工具
+        def create_directory(path: str) -> str:
+            """创建目录，如果目录已存在则忽略"""
+            # 构建完整路径
+            full_path = os.path.join("e:/github_project/imooc_agent/.temp", path)
+            # 创建目录，包括所有中间目录
+            os.makedirs(full_path, exist_ok=True)
+            return f"目录已创建: {full_path}"
+
+        # 将创建目录工具添加到工具列表
+        self._tools.append(
+            Tool.from_function(
+                func=create_directory,
+                name="create_directory",
+                description="创建目录，如果目录已存在则忽略。参数：path - 要创建的目录路径",
             )
-        return self._chain_with_history
+        )
+
+    def _get_agent(self):
+        """获取React Agent"""
+        if self._agent is None:
+            # 使用create_react_agent创建agent，自动处理工具调用
+            self._agent = create_react_agent(self.llm, self._tools)
+        return self._agent
 
     def create_session(self, session_id: Optional[str] = None) -> str:
         """创建新会话"""
@@ -171,13 +208,30 @@ class MultiTurnConversationManager:
 
     def chat(self, question: str, session_id: str, auto_save: bool = True) -> str:
         """发送消息并获取回复"""
-        chain_with_history = self.get_chain_with_history()
+        # 导入asyncio，用于处理异步调用
+        import asyncio
 
-        response = chain_with_history.invoke(
-            {"question": question}, config={"configurable": {"session_id": session_id}}
-        )
+        # 获取agent
+        agent = self._get_agent()
 
-        return response
+        # 获取会话历史
+        history = self.store.get_session_history(session_id)
+
+        # 构建消息列表，包含历史消息和当前问题
+        messages = []
+        for msg in history.messages:
+            messages.append(msg)
+        messages.append(("user", question))
+
+        # 使用asyncio.run执行异步调用
+        response = asyncio.run(agent.ainvoke({"messages": messages}))
+
+        # 保存对话历史
+        history.add_user_message(question)
+        history.add_ai_message(response["messages"][-1].content)
+
+        # 返回响应内容
+        return response["messages"][-1].content
 
     def get_history(self, session_id: str) -> list:
         """获取对话历史"""
@@ -194,6 +248,26 @@ class MultiTurnConversationManager:
         """清空对话历史"""
         if session_id in self.store.in_memory_store:
             del self.store.in_memory_store[session_id]
+
+    def execute_tool_call(self, response) -> str:
+        """执行工具调用"""
+        tools_dict = {tool.name: tool for tool in self._tools}
+
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            results = []
+            for tool_call in response.tool_calls:
+                tool_name = tool_call["name"]
+                tool_args = tool_call["args"]
+
+                if tool_name in tools_dict:
+                    tool = tools_dict[tool_name]
+                    result = tool.invoke(tool_args)
+                    results.append(f"工具 {tool_name} 执行结果: {result}")
+                else:
+                    results.append(f"工具 {tool_name} 不存在")
+            return "\n".join(results)
+        else:
+            return response.content
 
 
 # ===================== 4. 初始化函数 =====================
