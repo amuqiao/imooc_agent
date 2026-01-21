@@ -1,0 +1,11 @@
+[flake8]
+# 行长度限制
+max-line-length = 120
+# 忽略与black冲突的检查项
+ignore = E203, W503, E501
+# 排除检查的目录
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    migrations

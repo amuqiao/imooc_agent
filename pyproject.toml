@@ -21,3 +21,36 @@ dependencies = [
 [tool.uv]
 index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"  # 主镜像源（国内优先用清华源）
 extra-index-url = ["https://pypi.org/simple"]           # 备用镜像源（主源不可用时兜底）
+
+[tool.black]
+line-length = 120          # 行长度限制
+target-version = ['py311']  # 适配的Python版本（根据项目调整）
+include = '\.pyi?$'        # 格式化的文件类型
+exclude = '''              # 排除不需要格式化的目录/文件
+/(
+    \.git
+  | \.venv
+  | __pycache__
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"          # 对齐black的风格
+line_length = 120
+multi_line_output = 3      # 导入语句的换行风格
+include_trailing_comma = true  # 导入列表末尾添加逗号
+use_parentheses = true     # 导入语句使用圆括号包裹
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.3.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "pytest>=7.0.0",
+]
