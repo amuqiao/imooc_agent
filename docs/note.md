@@ -1,347 +1,401 @@
-# 为什么需要多轮对话能力
+# AppleScript介绍
 
-- 一轮对话无法完全解决用户问题，需要继续追问
-- 由于大模型上下文限制，无法一次性回答全部问题（比如：写代码、写小说等）
-- 需要记忆上次会话内容，继续开始下次会话
-
-# 构建session级别的多轮对话能力
-
-架构设计：
-
-**LCEL**（LangChain Expression Language）是LangChain框架中用于高效构建和组合语言模型应用链的声明式表达式语言‌，具有异步支持、并行处理和集成监控等核心特性。‌‌
-
-**‌LCEL核心定义与作用‌**
-
-LCEL通过提供统一的编程接口和组合原语，简化了LangChain框架中组件（如提示模板、模型、输出解析器）的串联流程。开发者可通过类似Unix管道符（|）的语法快速构建应用链，例如：chain = prompt | model | output_parser。‌‌
-
-‌**典型应用场景‌**
-
-‌复杂对话链构建‌：如结合多个模型和解析器生成结构化输出；‌‌
-
-‌并行处理优化‌：自动并行执行可独立运行的组件（如多检索器文档获取）。‌‌
-
-# 第一步：构建提示词模板
-
-这里在对话中注入了`MessagesPlaceholder`，用于注入对话历史：
+‌osascript是macOS系统中用于执行AppleScript脚本的命令行工具‌，主要用于自动化任务或控制应用程序。启动Safari浏览器，可以使用如下脚本：
 
 ```bash
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "你是一个技术专家，擅长解决各种Web开发中的技术问题"),
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("human", "{question}"),
-])
+osascript -e 'tell application "Safari" to activate'
 ```
 
-# 第二步：创建大模型实例
+#
 
-这里使用 Anthropic 的 claude 大模型，因为需要借助它强大的编码能力：
+步骤1：封装mcp stdio客户端通用方法
 
 ```bash
-llm = ChatAnthropic(
-    base_url="https://api.aiclaude.site",
-    api_key="sk-xxx",
-    model_name="claude-3-7-sonnet-20250219"
-)
-```
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
-# 第三步：构建链式调用
-
-将提示词模板、大模型、输出结构化结合在一起使用：
-
-```bash
-chain = prompt | llm | StrOutputParser()
-```
-
-# 第四步：构建基于历史消息的Runnable实例
-
-又分为三小步：
-
-### 4.1 创建session存储对象
-
-```bash
-store = {}
-```
-
-### 4.2 创建获取session的函数
-
-根据 session_id 获取 session 内容，如果 session_id 不存在时进行创建：
-
-```bash
-from langchain_community.chat_message_histories import ChatMessageHistory
-
-def get_session_history(session_id: str):
-    if session_id not in store:
-        store[session_id] = ChatMessageHistory()
-    print(store)
-    return store[session_id]
-```
-
-**4.3 创建 runnable 实例**
-
-```bash
-chain_with_history = RunnableWithMessageHistory(
-    runnable=chain,
-    get_session_history=get_session_history,
-    input_messages_key="question",
-    history_messages_key="chat_history",
-)
-```
-
-**第五步：构建多轮对话**
-
-```bash
-import uuid
-
-def run_conversation():
-    session_id = uuid.uuid4()
-    while True:
-        user_input = input("用户：")
-        if user_input.lower() == "exit":
-            break
-
-        response = chain_with_history.invoke(
-            {"question": user_input},
-            config={"configurable": {"session_id": session_id}},
-        )
-
-        print("助手：")
-        for chunk in response:
-            print(chunk, end="")
-        print("\n")
-```
-
-**第六步：运行多轮对话**
-
-```bash
-if __name__ == "__main__":
-    run_conversation()
-```
-
-```bash
-# 执行后，先生成 session_id：
-session_id 8bfa86f0-740c-4532-8709-cccb65506b54
-# 用户手动输入需求：
-用户：写一个python的快速排序算法
-# 生成 ChatMessageHistory 实例：
-{UUID('8bfa86f0-740c-4532-8709-cccb65506b54'): InMemoryChatMessageHistory(messages=[])}
-```
-
-获得响应结果：
-
-```bash
-助手：
-# Python 快速排序算法
-
-快速排序是一种高效的排序算法，基于分治法的思想。以下是Python实现的快速排序算法：
-
-```python
-def quick_sort(arr):
-    """
-    快速排序函数
-    :param arr: 待排序的列表
-    :return: 排序后的列表
-    """
-    if len(arr) <= 1:
-        return arr
-    else:
-        pivot = arr[0]  # 选择第一个元素作为基准
-        # 分区操作
-        less = [x for x in arr[1:] if x <= pivot]  # 小于等于pivot的元素
-        greater = [x for x in arr[1:] if x > pivot]  # 大于pivot的元素
-        
-        # 递归排序并合并结果
-        return quick_sort(less) + [pivot] + quick_sort(greater)
-```
-
-另一种实现方式（原地排序，更节省内存）：
-
-```python
-def quick_sort_in_place(arr, low, high):
-    """
-    原地快速排序
-    :param arr: 待排序的列表
-    :param low: 起始索引
-    :param high: 结束索引
-    """
-    if low < high:
-        # 找到分区点
-        pivot_index = partition(arr, low, high)
-        
-        # 递归排序左右两部分
-        quick_sort_in_place(arr, low, pivot_index - 1)
-        quick_sort_in_place(arr, pivot_index + 1, high)
-
-def partition(arr, low, high):
-    """
-    分区操作
-    :param arr: 待分区的列表
-    :param low: 起始索引
-    :param high: 结束索引
-    :return: 基准元素的最终位置
-    """
-    pivot = arr[high]  # 选择最后一个元素作为基准
-    i = low - 1  # 小于等于pivot的区域的指针
-    
-    for j in range(low, high):
-        # 如果当前元素小于或等于pivot
-        if arr[j] <= pivot:
-            i += 1
-            arr[i], arr[j] = arr[j], arr[i]  # 交换元素
-    
-    # 将pivot放到正确的位置
-    arr[i + 1], arr[high] = arr[high], arr[i + 1]
-    return i + 1
-
-# 使用示例
-def sort_array(arr):
-    """
-    使用快速排序对数组进行排序
-    :param arr: 待排序的列表
-    :return: 排序后的列表
-    """
-    if not arr:
-        return []
-    
-    quick_sort_in_place(arr, 0, len(arr) - 1)
-    return arr
-```
-
-快速排序的平均时间复杂度为O(n log n)，最坏情况下为O(n²)，但通过优化基准元素的选择（例如三数取中法）可以减少最坏情况的发生。快速排序是实践中最常用和最高效的排序算法之一。
-```
-
-用户可以持续提问，可以看到会话消息被缓存：
-
-# 多轮对话能力持久化（复杂度高）
-
-需要基于上一步的基础上进行改造
-
-# 第一步：定义文件系统根路径
-
-```bash
-# ==================== 4. 文件系统存储 ====================
-DATA_DIR = "data/conversations"
-```
-
-# 第二步：根据session_id获取文件名
-
-目录结构为：`data/conversations/user_id/session_id`
-
-```bash
-data/conversations/user1/user1_82b8d5d4-8ebf-4a55-a892-426542deb8c8.json
-```
-
-通过 session_id 解析出 user_id，生成完整的文件路径：
-
-```bash
-def get_file_path(session_id):
-    """根据会话 ID 生成文件路径"""
-    user_id = session_id.split("_")[0]  # 假设 session_id 格式为 "user_id_session"
-    dir_path = os.path.join(DATA_DIR, user_id)
-    os.makedirs(dir_path, exist_ok=True)
-    return os.path.join(dir_path, f"{session_id}.json")
-```
-
-# 第三步：根据session_id存储和读取对话json文件内容
-
-存储：
-
-```bash
-def save_conversation_history(session_id, messages):
-    """将历史记录保存到文件"""
-    file_path = get_file_path(session_id)
-    data = [
-        {
-            "session_id": session_id,
-            "sender": "user" if isinstance(msg, HumanMessage) else "assistant",
-            "content": msg.content,
-            "timestamp": datetime.now().isoformat(),
+async def create_mcp_stdio_client(name, params):
+    config = {
+        name: {
+            "transport": "stdio",
+            **params,
         }
-        for msg in messages
-    ]
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    }
+    print(config)
+    client = MultiServerMCPClient(config)
+
+    tools = await client.get_tools()
+
+    return client, tools
 ```
 
-读取：
+**步骤2：开发终端控制相关工具**
+
+**通用方法封装**
 
 ```bash
-def load_conversation_history(session_id):
-    """从文件中加载历史记录为消息列表"""
-    file_path = get_file_path(session_id)
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            return [
-                HumanMessage(content=msg["content"]) if msg["sender"] == "user"
-                else AIMessage(content=msg["content"])
-                for msg in json.load(f)
-            ]
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+import subprocess
+
+def run_applescript(script):
+    """调用 osascript 执行 AppleScript，并返回输出"""
+    process = subprocess.Popen(["osascript", "-e", script],
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    output, error = process.communicate()
+    return output.decode('utf-8').strip(), error.decode('utf-8').strip()
+
+def run_script(script):
+    terminal_content, error = run_applescript(script)
+    if error:
+        print('\nrun_script error:')
+        print(error)
+        print('-' * 50)
+    # else:
+    # print('\nrun_script success:')
+    # print(terminal_content)
+    # print('-' * 50)
+    return terminal_content, error
 ```
 
-**第四步：改造get_session_history方法**
+**工具1：关闭Terminal进程**
 
 ```bash
-def get_session_history(session_id):
-    """返回对应会话的历史记录（返回 BaseChatMessageHistory 实例）"""
-    history = load_conversation_history(session_id)
-    return InMemoryChatMessageHistory(messages=history)
+@mcp.tool(name="close_terminal_if_open", description="close terminal if terminal was open")
+def close_terminal_if_open(args: str="") -> bool:
+    terminal_content, error = run_script('''
+tell application "System Events"
+    if exists process "Terminal" then
+        tell application "Terminal" to quit
+    end if
+end tell
+''')
+    if error:
+        return False
+    else:
+        return True
 ```
 
-# 第五步：改造运行会话方法
-
-核心改动是：
+**工具2：打开新的Terminal窗口**
 
 ```bash
-# 构建新消息并保存
-new_messages = load_conversation_history(session_id) + [HumanMessage(user_input), AIMessage(response)]
-save_conversation_history(session_id, new_messages)
+@mcp.tool(name="open_new_terminal", description="open a new terminal, return window id of terminal")
+def open_new_terminal(args: str="") -> str:
+    terminal_content, error = run_script('''
+tell application "Terminal"
+    if (count of windows) > 0 then
+        activate
+    else
+        activate
+    end if
+end tell
+''')
+    time.sleep(5)  # 等待5秒钟，Terminal打开需要一段时间
+    if error:
+        return error
+    else:
+        if terminal_content.strip() == "":
+            return get_all_terminal_window_ids()[0]
+        else:
+            return terminal_content
 ```
 
-完整代码：
+**获取Terminal的window id**
 
 ```bash
-def run_conversation():
-    user_id = "user1"
-    # session_id = user_id + "_" + str(uuid.uuid4())  # 生成唯一会话 ID
-    session_id = user_id + "_" + "82b8d5d4-8ebf-4a55-a892-426542deb8c8"  # 根据已有session会话生成
-    print(f"\n[会话开始] 会话 ID: {session_id}")
-
-    while True:
-        try:
-            user_input = input("用户: ")
-            if user_input.lower() in ["退出", "exit"]:
-                break
-
-            # 获取历史 + 当前输入 -> 模型响应 -> 更新历史
-            response = chain_with_history.invoke(
-                {"question": user_input},
-                config={"configurable": {"session_id": session_id}},
-            )
-
-            # 构建新消息并保存
-            new_messages = load_conversation_history(session_id) + [HumanMessage(user_input), AIMessage(response)]
-            save_conversation_history(session_id, new_messages)
-
-            print(f"助手: {response}")
-
-        except KeyboardInterrupt:
-            print("\n用户中断了对话。")
-            break
-
-    print("[会话结束] 历史已保存至文件。")
-
-if __name__ == "__main__":
-    run_conversation()
+def get_all_terminal_window_ids(args=None):
+    script = """
+tell application "Terminal"
+    set outputList to {}
+    repeat with aWindow in windows
+        set windowID to id of aWindow
+        set tabCount to number of tabs of aWindow
+        repeat with tabIndex from 1 to tabCount
+            set end of outputList to {tab tabIndex of window id windowID}
+        end repeat
+    end repeat
+end tell
+return outputList
+"""
+    terminal_content, error = run_script(script)
+    if error:
+        return error
+    else:
+        # 检查字符串中是否包含逗号
+        if ',' in terminal_content:
+            # 将字符串按逗号分割成列表
+            list_data = terminal_content.split(",")
+            list_data = [item.strip() for item in list_data]
+        else:
+            # 如果不包含逗号，将整个字符串作为一个元素放入列表
+            list_data = [terminal_content.strip()]
+        return list_data
 ```
 
-**优化对话持久化（简单）**
+**工具3：获取终端的显示内容**
 
 ```bash
-from langchain_community.chat_message_histories import FileChatMessageHistory
+@mcp.tool(name="get_terminal_full_text", description="get full text from terminal")
+def get_terminal_full_text(args: str="") -> str:
+    terminal_content, error = run_script('''
+tell application "Terminal"
+    set fullText to history of selected tab of front window
+end tell
+''')
+    if error:
+        return error
+    else:
+        return terminal_content
+```
 
-def get_session_history(session_id: str):
-    return FileChatMessageHistory(f"{session_id}.txt")
+**工具4：向终端内输入脚本**
+
+```bash
+@mcp.tool(name="run_script_in_exist_terminal", description="run script in an existing terminal")
+def run_script_in_exist_terminal(command: str) -> str:
+    command = clean_bash_tags(command)  # 清除markdown字符串
+    print('\nrun_script_in_exist_terminal command:')
+    print(command)
+    print('-' * 50)
+    terminal_content, error = run_script(f'''
+tell application "Terminal"
+    activate
+    if (count of windows) > 0 then
+        do script "{command}" in window 1
+    else
+        do script "{command}"
+    end if
+end tell
+''')
+    if error:
+        return error
+    else:
+        return terminal_content
+```
+
+**清除markdown字符串**
+
+```bash
+def clean_bash_tags(s):
+    # 同时匹配开头和结尾的标记及周围可能的空白（包括换行符）
+    s = re.sub(r'^\s*```bash\s*', '', s, flags=re.DOTALL)  # 去开头
+    s = re.sub(r'^\s*```shell\s*', '', s, flags=re.DOTALL)  # 去开头
+    s = re.sub(r'\s*```\s*$', '', s, flags=re.DOTALL)      # 去结尾
+    return s.strip()
+```
+
+**工具5：向终端内输入按键**
+
+```bash
+@mcp.tool(name="send_terminal_keyboard_key", description="send a terminal keyboard key to an existing terminal")
+def send_terminal_keyboard_key(key_codes: List[str]) -> bool:
+    print('\nsend_terminal_keyboard_key keycode:', key_codes)
+    print('-' * 50)
+    script = f'''
+    tell application "Terminal"
+        activate
+        tell application "System Events"
+            {concat_key_codes(key_codes)}
+        end tell
+    end tell
+    '''
+    print(script)
+    terminal_content, error = run_script(script)
+    if error:
+        return False
+    else:
+        return True
+```
+
+**keycode解析和处理**
+
+```bash
+def parse_key_code(button):
+    button = button.lower()
+
+    keycode_map = {
+        'return': 'return',
+        'space': 'space',
+        'up': 126,
+        'down': 125,
+        'left': 123,
+        'right': 124,
+        'a': 0,
+        'b': 11,
+        'c': 8,
+        'd': 2,
+        'e': 14,
+        'f': 3,
+        'g': 5,
+        'h': 4,
+        'i': 34,
+        'j': 38,
+        'k': 40,
+        'l': 37,
+        'm': 46,
+        'n': 45,
+        'o': 31,
+        'p': 35,
+        'q': 12,
+        'r': 15,
+        's': 1,
+        't': 17,
+        'u': 32,
+        'v': 9,
+        'w': 13,
+        'x': 7,
+        'y': 16,
+        'z': 6,
+        '.': 47,
+        'dot': 47,
+        '0': 29,
+        '1': 18,
+        '2': 19,
+        '3': 20,
+        '4': 21,
+        '5': 23,
+        '6': 22,
+        '7': 26,
+        '8': 28,
+        '9': 25,
+        '-': 27,
+    }
+
+    return keycode_map[button]
+
+def concat_key_codes(key_codes):
+    script = ''
+    for key in key_codes:
+        key_code = parse_key_code(key)
+        script += f'keystroke {key_code}\n'
+        script += 'delay 0.5\n'
+    return script.strip()
+```
+
+**步骤3：封装获取mcp tools的通用方法**
+
+```bash
+from app.utils.mcp import create_mcp_stdio_client
+
+async def get_stdio_terminal_tools():
+    params = {
+        "command": "python",
+        "args": [
+            "/Users/sam/Xiaoluyy/ai/coding_agent/app/mcp/terminal.py",
+        ],
+    }
+
+    client, tools = await create_mcp_stdio_client("terminal", params)
+
+    return tools
+```
+
+**步骤4：创建提示词模板**
+
+```bash
+from langchain_core.prompts import PromptTemplate
+
+def run_script_in_terminal_template():
+    template = PromptTemplate.from_template("""你是一位技术专家，擅长各类脚本语句。
+
+# 规范
+- 严禁使用`rm`、`rm -rf`、`rm -r`、`rm -f`等删除命令！！！
+- 执行脚本前，请先使用 close_terminal_if_open 关闭所有终端，再使用 open_new_terminal 打开一个新的终端
+- 使用 run_script_in_exist_terminal 在终端内执行脚本语句，执行完成后使用 get_terminal_full_text 查看执行结果（会包含当前终端中的所有文本）
+- 如果发现需要交互的场景，使用 send_terminal_keyboard_key 向终端发送控制命令，常用的控制命令如下：
+    - 键盘向上：up
+    - 键盘向下：down
+    - 键盘向左：left
+    - 键盘向右：right
+    - 回车键：return
+    - 空格键：space
+- 工具 send_terminal_keyboard_key 调用时需要传入一个按键数组，示例如下：
+```python
+# 向上点击键盘
+send_terminal_keyboard_key(["up"])
+
+# 先输入向下，再输入回车
+send_terminal_keyboard_key(["down", "return"])
+```
+- 如果出现下面的列表页面，说明需要选择，请看示例：
+```bash
+◆  "vue3" isn't a valid template. Please choose from below:
+│  ● Vanilla
+│  ○ Vue
+│  ○ React
+│  ○ Preact
+│  ○ Lit
+│  ○ Svelte
+│  ○ Solid
+│  ○ Qwik
+│  ○ Angular
+│  ○ Marko
+│  ○ Others
+└
+```
+此时如果要选中“React”，可以通过向Terminal输入两次向下按键后，再按回车键实现，方法如下：
+```python
+send_terminal_keyboard_key(["down", "down", "return"])
+```
+也可以分三次输入：
+```python
+send_terminal_keyboard_key(["down"])
+send_terminal_keyboard_key(["down"])
+send_terminal_keyboard_key(["return"])
+```
+
+- 如果出现下面的内容，说明需要输入项目名称：
+```bash
+│
+◆  Project name:
+│  vite-project
+└
+```
+你需要使用 send_terminal_keyboard_key 工具，向 Terminal 一个一个输入项目名称字符，并按回车键确认，如：
+```python
+send_terminal_keyboard_key(["v", "u", "e", "3", "-", "p", "r", "o", "j", "e", "c", "t", "return"])
+```
+
+- 使用 `vue create` 命令初始化 vue 项目
+
+# 问题
+{question}
+""")
+
+    return template
+```
+
+**步骤5：创建智能体引用终端工具并运行**
+
+```bash
+import asyncio
+
+from langchain.agents import initialize_agent, AgentType
+
+from app.models.qwen import llm_qwen
+from app.prompts.run_script_in_terminal import run_script_in_terminal_template
+from app.tools.rag import get_stdio_rag_tools
+from app.tools.terminal import get_stdio_terminal_tools
+
+async def exec_command_in_terminal():
+    terminal_tools = await get_stdio_terminal_tools()
+    rag_tools = await get_stdio_rag_tools()
+    tools = terminal_tools + rag_tools
+    print(tools)
+
+    agent = initialize_agent(
+        llm=llm_qwen,
+        tools=tools,
+        agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
+        verbose=True,
+        max_iterations=50,
+    )
+
+    prompt_template = run_script_in_terminal_template()
+    prompt = prompt_template.format(question="在 /Users/sam/llm/.temp/vue3-test 目录下初始化一个vue3的新项目并启动项目")
+
+    resp = await agent.ainvoke(prompt)
+    print(resp['output'])
+
+    return resp
+
+asyncio.run(exec_command_in_terminal())
 ```

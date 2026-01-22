@@ -17,11 +17,16 @@ async def get_stdio_powershell_tools():
         list: 可用的PowerShell工具列表
     """
     try:
+        # 使用动态路径，确保在不同操作系统上都能正确找到文件
+        import os
+        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        powershell_tools_path = os.path.join(script_dir, "app", "mcp", "stdio", "powershell_tools.py")
+
         # 配置MCP客户端参数
         params = {
             "command": "python",
             "args": [
-                "E:\\github_project\\imooc_agent\\app\\mcp\\stdio\\powershell_tools.py"
+                powershell_tools_path
             ]
         }
 

@@ -28,6 +28,9 @@ from app.code_agent.tools.file_tools import (
 from app.code_agent.tools.powershell_tools import (
     get_stdio_powershell_tools,  # 导入PowerShell工具获取函数
 )
+from app.code_agent.tools.terminal_tools import (
+    get_stdio_terminal_tools,  # 导入终端工具获取函数
+)
 
 # 注释掉shell_tools，暂时不使用
 # from app.code_agent.tools.shell_tools import (
@@ -35,7 +38,7 @@ from app.code_agent.tools.powershell_tools import (
 # )
 
 # 加载环境变量
-env_path = Path(__file__).parent.parent.parent / ".env"
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
@@ -90,8 +93,16 @@ async def run_agent():
             print(f"警告：加载PowerShell工具失败 - {str(e)}")
             powershell_tools = []
 
+        # 2.4 获取终端工具（通过MCP协议连接到外部终端工具服务）
+        try:
+            terminal_tools = await get_stdio_terminal_tools()
+            print(f"成功加载 {len(terminal_tools)} 个终端工具")
+        except Exception as e:
+            print(f"警告：加载终端工具失败 - {str(e)}")
+            terminal_tools = []
+
         # 注释掉shell_tools，暂时不使用
-        # 2.4 获取shell工具（通过MCP协议连接到外部shell工具服务）
+        # 2.5 获取shell工具（通过MCP协议连接到外部shell工具服务）
         # try:
         #     shell_tools = await get_stdio_shell_tools()
         #     print(f"成功加载 {len(shell_tools)} 个shell工具")
@@ -99,8 +110,8 @@ async def run_agent():
         #     print(f"警告：加载shell工具失败 - {str(e)}")
         #     shell_tools = []
 
-        # 2.5 合并所有工具
-        all_tools = file_tools + mcp_file_tools + powershell_tools
+        # 2.6 合并所有工具
+        all_tools = file_tools + mcp_file_tools + powershell_tools + terminal_tools
 
         if not all_tools:
             print("错误：未加载到任何工具")
