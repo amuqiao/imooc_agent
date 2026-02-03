@@ -1,44 +1,38 @@
-## 为什么要接入百炼知识库API
-
-- 在现有系统嵌入知识库，极大降低自建知识库的成本（如：研发、数据库建设、性能、安全、运维成本）
-- 实现知识的自动整理入库
-
-## 百炼知识库接入流程
-
-```python
-创建百炼Client客户端->上传知识文件至百炼数据中心->创建知识库->将文件向量化并存入知识库
-```
-
-## 百炼知识库创建
-
-官方文档：https://help.aliyun.com/zh/model-studio/rag-knowledge-base-api-guide#b845f48990hr9
-
-> 注意：官方文档有很多地方写得比较模糊，代码直接拷贝后可能运行不起来，建议跟着本文档进行操作
->
-
-### 准备工作
-
-### 安装百炼SDK
-
-```python
-uv pip install alibabacloud_bailian20231229==2.8.1
-uv add alibabacloud_bailian20231229==2.8.1
-
-```
-
-### 设置环境变量
-
-```python
-os.environ['ALIBABA_CLOUD_ACCESS_KEY_ID'] = "L***F"
-os.environ['ALIBABA_CLOUD_ACCESS_KEY_SECRET'] = "v***X"
-os.environ['WORKSPACE_ID'] = "l***0"
-
-```
-
-### 创建百炼客户端
-
-```python
+import os
+import requests
+import hashlib
+from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_bailian20231229 import client as bailian_20231229_client
+from alibabacloud_bailian20231229 import models as bailian_20231229_models
+from alibabacloud_tea_util import models as util_models
+
+# 从环境变量或配置文件读取配置
+from dotenv import load_dotenv
+load_dotenv()
+
+# 直接从 .env 文件读取配置（注意：.env 文件中的变量名格式）
+access_key_id = os.getenv('accessKeyId')
+access_key_secret = os.getenv('accessKeySecret')
+workspace_id_env = os.getenv('workspace_id')
+knowledge_base_id_env = os.getenv('knowledge_base_id')
+
+# 验证配置是否存在
+if not access_key_id:
+    raise ValueError("accessKeyId 配置未找到，请在 .env 文件中设置")
+if not access_key_secret:
+    raise ValueError("accessKeySecret 配置未找到，请在 .env 文件中设置")
+if not workspace_id_env:
+    raise ValueError("workspace_id 配置未找到，请在 .env 文件中设置")
+if not knowledge_base_id_env:
+    raise ValueError("knowledge_base_id 配置未找到，请在 .env 文件中设置")
+
+# 设置环境变量
+os.environ['ALIBABA_CLOUD_ACCESS_KEY_ID'] = access_key_id
+os.environ['ALIBABA_CLOUD_ACCESS_KEY_SECRET'] = access_key_secret
+os.environ['WORKSPACE_ID'] = workspace_id_env
+
+print(f"加载的配置: access_key_id={access_key_id}, workspace_id={workspace_id_env}, knowledge_base_id={knowledge_base_id_env}")
+
 
 def create_client() -> bailian_20231229_client.Client:
     """
@@ -54,18 +48,75 @@ def create_client() -> bailian_20231229_client.Client:
     config.endpoint = 'bailian.cn-beijing.aliyuncs.com'
     return bailian_20231229_client.Client(config=config)
 
-```
 
-### 上传知识文件
+def retrieve_index(client, workspace_id, index_id, query):
+    """
+    在指定的知识库中检索信息。
 
-### 第一步：获得上传凭证（租约）
+    参数:
+        client (bailian_20231229_client.Client): 客户端（Client）。
+        workspace_id (str): 业务空间ID。
+        index_id (str): 知识库ID。
+        query (str): 原始输入prompt。
 
-### 1.1 调用百炼SDK获得租约方法
+    返回:
+        阿里云百炼服务的响应。
+    """
+    headers = {}
+    retrieve_request = bailian_20231229_models.RetrieveRequest(
+        index_id=index_id,
+        query=query
+    )
+    runtime = util_models.RuntimeOptions()
+    return client.retrieve_with_options(workspace_id, retrieve_request, headers, runtime)
 
-```python
-from alibabacloud_bailian20231229 import models as bailian_20231229_models
+# 计算文件MD5
+
+
+def calculate_md5(file_path: str) -> str:
+    """
+    计算文件的 MD5 哈希值。
+
+    参数:
+        file_path (str): 文件路径。
+
+    返回:
+        str: 文件的 MD5 哈希值。
+    """
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
+# 获取文件信息
+
+
+def get_file_info(file_path):
+    """
+    获取指定文件的名称、MD5哈希值和大小。
+
+    参数:
+        file_path (str): 文件的完整路径。
+
+    返回:
+        tuple: (file_name, file_md5, file_size)
+    """
+
+    # 获取文件名
+    file_name = os.path.basename(file_path)
+
+    # 获取文件大小（字节）
+    file_size = os.path.getsize(file_path)
+
+    # 计算MD5哈希值
+    file_md5 = calculate_md5(file_path)
+
+    return file_name, file_md5, file_size
 
 # 申请文件上传租约
+
+
 def apply_lease(client, category_id, file_name, file_md5, file_size, workspace_id):
     """
     从阿里云百炼服务申请文件上传租约。
@@ -90,98 +141,23 @@ def apply_lease(client, category_id, file_name, file_md5, file_size, workspace_i
     runtime = util_models.RuntimeOptions()
     return client.apply_file_upload_lease_with_options(category_id, workspace_id, request, headers, runtime)
 
-```
+# 根据文件路径申请租约
 
-### 1.2 计算文件MD5
 
-```python
-import hashlib
-
-def calculate_md5(file_path: str) -> str:
-    """
-    计算文件的 MD5 哈希值。
-
-    参数:
-        file_path (str): 文件路径。
-
-    返回:
-        str: 文件的 MD5 哈希值。
-    """
-    hash_md5 = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
-
-```
-
-### 1.3 根据文件路径获取文件名、MD5和大小
-
-```python
-def get_file_info(file_path):
-    """
-    获取指定文件的名称、MD5哈希值和大小。
-
-    参数:
-        file_path (str): 文件的完整路径。
-
-    返回:
-        tuple: (file_name, file_md5, file_size)
-    """
-
-    # 获取文件名
-    file_name = os.path.basename(file_path)
-
-    # 获取文件大小（字节）
-    file_size = os.path.getsize(file_path)
-
-    # 计算MD5哈希值
-    file_md5 = calculate_md5(file_path)
-
-    return file_name, file_md5, file_size
-
-```
-
-### 1.4 对百炼SDK进行简化二次封装
-
-```python
 def apply_lease_by_file_path(client, category_id, workspace_id, file_path):
     file_name, file_md5, file_size = get_file_info(file_path)
     print(file_name, file_md5, file_size)
 
     return apply_lease(client, category_id, file_name, file_md5, file_size, workspace_id)
 
-```
+# 上传文件
 
-### 1.5 实际调用获取上传租约
 
-```python
-bailian_client = create_client()
-
-bailian_category_id = "c***6"
-bailian_workspace_id = os.environ["WORKSPACE_ID"]
-bailian_file_path = "***"
-
-lease = apply_lease_by_file_path(bailian_client, bailian_category_id, bailian_workspace_id, bailian_file_path)
-
-lease_id = lease.body.data.file_upload_lease_id
-headers = lease.body.data.param.headers
-upload_url = lease.body.data.param.url
-print(lease_id, headers, upload_url)
-
-```
-
-### 第二步：上传文件
-
-### 2.1 将文件上传至阿里云百炼
-
-```python
 def upload_file(upload_url, headers, file_path):
     """
     将文件上传到阿里云百炼服务。
 
     参数:
-        lease_id (str): 租约 ID。
         upload_url (str): 上传 URL。
         headers (dict): 上传请求的头部。
         file_path (str): 文件路径。
@@ -196,14 +172,9 @@ def upload_file(upload_url, headers, file_path):
     print(response.status_code)
     response.raise_for_status()
 
-# 实际调用
-upload_file(lease_id, upload_url, headers, bailian_file_path)
+# 将文件添加到指定类目
 
-```
 
-### 2.2 将文件添加到指定类目
-
-```python
 def add_file(client, lease_id: str, parser: str, category_id: str, workspace_id: str):
     """
     将文件添加到阿里云百炼指定类目。
@@ -227,18 +198,8 @@ def add_file(client, lease_id: str, parser: str, category_id: str, workspace_id:
     runtime = util_models.RuntimeOptions()
     return client.add_file_with_options(workspace_id, request, headers, runtime)
 
-# 实际调用
-file_client = add_file(bailian_client, lease_id, 'DASHSCOPE_DOCMIND', bailian_category_id, bailian_workspace_id)
-print(file_client)
+# 查询上传状态
 
-file_id = file_client.body.data.file_id
-
-```
-
-### 2.3 查询上传状态
-
-```python
-from alibabacloud_tea_util import models as util_models
 
 def describe_file(client, workspace_id, file_id):
     """
@@ -256,17 +217,9 @@ def describe_file(client, workspace_id, file_id):
     runtime = util_models.RuntimeOptions()
     return client.describe_file_with_options(workspace_id, file_id, headers, runtime)
 
-# 实际调用
-file_status = describe_file(client=bailian_client, workspace_id=bailian_workspace_id, file_id=file_id)
-print(file_status.body.data)
+# 创建知识库
 
-```
 
-### 创建知识库
-
-### 知识库创建方法
-
-```python
 def create_index(client, workspace_id, file_id, name, structure_type, source_type, sink_type):
     """
     在阿里云百炼服务中创建知识库（初始化）。
@@ -294,31 +247,9 @@ def create_index(client, workspace_id, file_id, name, structure_type, source_typ
     runtime = util_models.RuntimeOptions()
     return client.create_index_with_options(workspace_id, request, headers, runtime)
 
-```
+# 提交向量化任务
 
-### 实际调用
 
-```python
-index_status = create_index(
-    client=bailian_client,
-    workspace_id=bailian_workspace_id,
-    file_id=file_id,
-    name="terminal.txt",
-    structure_type="unstructured",
-    source_type="DATA_CENTER_FILE",
-    sink_type="BUILT_IN",
-)
-print(index_status.body.data)
-
-```
-
-### 知识文件向量化
-
-### 第一步：提交向量化任务
-
-### 创建任务代码
-
-```python
 def submit_index(client, workspace_id, index_id):
     """
     向阿里云百炼服务提交索引任务。
@@ -338,21 +269,9 @@ def submit_index(client, workspace_id, index_id):
     runtime = util_models.RuntimeOptions()
     return client.submit_index_job_with_options(workspace_id, submit_index_job_request, headers, runtime)
 
-```
+# 查询向量化任务状态
 
-### 实际调用
 
-```python
-submit_status = submit_index(bailian_client, bailian_workspace_id, index_id)
-print(submit_status.body.data)
-
-```
-
-### 第二步：查询向量化任务状态
-
-### 查询向量化任务状态代码
-
-```python
 def get_index_job_status(client, workspace_id, index_id, job_id):
     """
     查询索引任务状态。
@@ -374,21 +293,9 @@ def get_index_job_status(client, workspace_id, index_id, job_id):
     runtime = util_models.RuntimeOptions()
     return client.get_index_job_status_with_options(workspace_id, get_index_job_status_request, headers, runtime)
 
-```
+# 查询所有知识库信息
 
-### 实际调用
 
-```python
-job_status = get_index_job_status(bailian_client, bailian_workspace_id, index_id, job_id)
-print(job_status.body.data)
-
-```
-
-### 查看知识库
-
-### 查询所有知识库信息
-
-```python
 def list_indices(client, workspace_id):
     """
     获取指定业务空间下一个或多个知识库的详细信息。
@@ -405,69 +312,39 @@ def list_indices(client, workspace_id):
     runtime = util_models.RuntimeOptions()
     return client.list_indices_with_options(workspace_id, list_indices_request, headers, runtime)
 
-```
+# 追加文件到知识库
 
-### 执行查询
 
-```python
-bailian_indices = list_indices(client, workspace_id)
-print(bailian_indices.body.data)
-
-```
-
-### 查询内容示例
-
-```python
-{'Indices': [{'ChunkSize': 500, 'Description': '', 'DocumentIds': ['file_6***6'], 'EmbeddingModelName': 'text-embedding-v2', 'Id': '8***g', 'Name': 't***t', 'OverlapSize': 100, 'RerankMinScore': 0.01, 'RerankModelName': 'gte-rerank-hybrid', 'SinkInstanceId': 'gp-2***9', 'SinkRegion': 'cn-beijing', 'SinkType': 'BUILT_IN', 'SourceType': 'DATA_CENTER_FILE'}], 'PageNumber': 1, 'PageSize': 10, 'TotalCount': 18}
-
-```
-
-## 百炼知识库更新
-
-### 追加文件到知识库
-
-### 方法
-
-```python
 def submit_index_add_documents_job(client, workspace_id, index_id, file_id, source_type):
     """
     向一个非结构化知识库追加导入已解析的文档。
 
     参数:
-        client (bailian20231229Client): 客户端（Client）。
+        client (bailian_20231229_client.Client): 客户端（Client）。
         workspace_id (str): 业务空间ID。
         index_id (str): 知识库ID。
         file_id (str): 文档ID。
-        source_type(str): 数据类型。
+        source_type (str): 数据类型。
 
     返回:
         阿里云百炼服务的响应。
     """
-    headers = {}
-    submit_index_add_documents_job_request = bailian_20231229_models.SubmitIndexAddDocumentsJobRequest(
-        index_id=index_id,
-        document_ids=[file_id],
-        source_type=source_type
-    )
-    runtime = util_models.RuntimeOptions()
-    return client.submit_index_add_documents_job_with_options(workspace_id, submit_index_add_documents_job_request, headers, runtime)
+    try:
+        headers = {}
+        submit_index_add_documents_job_request = bailian_20231229_models.SubmitIndexAddDocumentsJobRequest(
+            index_id=index_id,
+            document_ids=[file_id],
+            source_type=source_type
+        )
+        runtime = util_models.RuntimeOptions()
+        return client.submit_index_add_documents_job_with_options(workspace_id, submit_index_add_documents_job_request, headers, runtime)
+    except Exception as e:
+        print(f"submit_index_add_documents_job 错误: {e}")
+        raise
 
-```
+# 删除知识库下的指定文件
 
-### 调用
 
-```python
-submit_index_add_documents_job(client, workspace_id, index_id, file_id, source_type='DATA_CENTER_FILE')
-
-```
-
-## 百炼知识库删除
-
-### 删除知识库下的指定文件
-
-### 删除文件方法
-
-```python
 def delete_index_document(client, workspace_id, index_id, file_id):
     """
     从指定的非结构化知识库中永久删除一个或多个文档。
@@ -489,23 +366,9 @@ def delete_index_document(client, workspace_id, index_id, file_id):
     runtime = util_models.RuntimeOptions()
     return client.delete_index_document_with_options(workspace_id, delete_index_document_request, headers, runtime)
 
-```
+# 删除知识库
 
-### 调用
 
-```python
-index_id = '8***g'
-file_id = 'file_6***6'
-delete_index_resp = delete_index_document(client, workspace_id, index_id, file_id)
-print(delete_index_resp.body.data)
-
-```
-
-### 删除知识库
-
-### 删除知识库方法
-
-```python
 def delete_index(client, workspace_id, index_id):
     """
     永久性删除指定的知识库。
@@ -525,18 +388,37 @@ def delete_index(client, workspace_id, index_id):
     runtime = util_models.RuntimeOptions()
     return client.delete_index_with_options(workspace_id, delete_index_request, headers, runtime)
 
-```
 
-### 调用
+if __name__ == "__main__":
+    try:
+        bailian_client = create_client()
+        # 使用 .env 文件中的配置
+        workspace_id = os.getenv('workspace_id')
+        index_id = os.getenv('knowledge_base_id')
 
-```python
-delete_index_resp = delete_index(client, workspace_id, index_id)
-print(delete_index_resp)
+        # 验证配置是否存在
+        if not workspace_id:
+            raise ValueError("workspace_id 配置未找到，请在 .env 文件中设置")
+        if not index_id:
+            raise ValueError("knowledge_base_id 配置未找到，请在 .env 文件中设置")
 
-```
+        print(f"使用配置: workspace_id={workspace_id}, index_id={index_id}")
+        rag = retrieve_index(bailian_client, workspace_id, index_id, "终端操作规范")
 
-### 总结
-
-1. 整体流程遵循「创建客户端→上传文件→创建知识库→向量化→管理知识库」的核心逻辑，每个步骤都有对应的SDK调用方法；
-2. 上传文件需先获取租约凭证，再执行上传操作，最后确认上传状态，是整个流程的基础步骤；
-3. 知识库的管理包含追加文件、删除文件、删除知识库等操作，覆盖全生命周期管理需求。
+        # 检查响应是否成功
+        if rag.body and hasattr(rag.body, 'data') and rag.body.data:
+            if hasattr(rag.body.data, 'nodes') and rag.body.data.nodes:
+                print(rag.body.data.nodes[0].text)
+            else:
+                print("未找到相关知识节点")
+        else:
+            # 处理错误情况
+            error_message = "未知错误"
+            if rag.body:
+                if hasattr(rag.body, 'Message'):
+                    error_message = rag.body.Message
+                elif hasattr(rag.body, 'message'):
+                    error_message = rag.body.message
+            print(f"查询失败: {error_message if rag.body else '无响应数据'}")
+    except Exception as e:
+        print(f"执行错误: {e}")
